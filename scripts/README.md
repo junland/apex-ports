@@ -24,6 +24,16 @@ Before running the bootstrap script, ensure you have the following installed on 
 This script is designed to run in an Alpine Linux environment with `abuild` installed. If you're not running Alpine Linux, you can use Docker:
 
 ```bash
+# Build the Docker image from the repository root
+docker build -t apex-bootstrap .
+
+# Run the bootstrap script with Docker
+docker run --rm -v $(pwd)/output:/tmp/apex-cross apex-bootstrap ./scripts/bootstrap.sh -a aarch64 -j 8
+```
+
+Or use the Alpine container directly:
+
+```bash
 docker run -it --rm -v $(pwd):/work alpine:latest
 apk add alpine-sdk
 cd /work

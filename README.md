@@ -34,6 +34,33 @@ Supported architectures:
 
 For detailed documentation on cross-compilation, see [scripts/README.md](scripts/README.md).
 
+### Using Docker
+
+If you're not running Alpine Linux, you can use Docker to run the bootstrap script:
+
+#### Build the Docker image
+
+```bash
+docker build -t apex-bootstrap .
+```
+
+#### Run the bootstrap script in Docker
+
+Show help:
+```bash
+docker run --rm apex-bootstrap
+```
+
+Cross-compile for ARM64:
+```bash
+docker run --rm -v $(pwd)/output:/tmp/apex-cross apex-bootstrap ./scripts/bootstrap.sh -a aarch64 -j 8
+```
+
+Interactive mode (to explore or debug):
+```bash
+docker run --rm -it apex-bootstrap sh
+```
+
 ## Building Packages
 
 ### Prerequisites

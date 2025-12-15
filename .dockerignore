@@ -1,0 +1,36 @@
+# Git directory
+.git
+.gitignore
+
+# Build artifacts and temporary files
+*.apk
+*.gz
+*.tgz
+*.bz2
+*.tbz2
+*.zip
+*.tags
+*.xz
+*.part
+*.tar
+*.tar.gz
+*.tar.xz
+src
+pkg
+pkg-*
+tmp
+build.log
+
+# Editor and IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation that doesn't need to be in the image
+LICENSE
