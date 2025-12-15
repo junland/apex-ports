@@ -1,5 +1,21 @@
-# Object file
-*.o
+*.apk
+*.gz
+*.tgz
+*.bz2
+*.tbz2
+*.zip
+*.tags
+*.xz
+*.part
+*.tar
+*.tar.gz
+*.tar.xz
+src
+pkg
+pkg-*
+tmp
+build.log
+core
+!core/
+.vscode/
 
-# Ada Library Information
-*.ali
