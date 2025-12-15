@@ -1,0 +1,223 @@
+From 24ee208751dff7ffff84539e0537c724da0f2fae Mon Sep 17 00:00:00 2001
+From: Alexey Kodanev <aleksei.kodanev@bell-sw.com>
+Date: Thu, 5 Dec 2024 12:11:18 +0000
+Subject: [PATCH] tests: add new test with symlinks
+
+---
+ test/alpine/Makefile                          | 28 +++++++++--------
+ test/alpine/repo_path_1/test-a/APKBUILD       | 30 ++++++++++++++++++
+ .../repo_path_symlink_1/test-a/APKBUILD       | 31 +++++++++++++++++++
+ .../repo_path_symlink_1/test-base/APKBUILD    | 27 ++++++++++++++++
+ test/alpine/test9.sh                          | 25 +++++++++++++++
+ 5 files changed, 128 insertions(+), 13 deletions(-)
+ create mode 100644 test/alpine/repo_path_1/test-a/APKBUILD
+ create mode 100644 test/alpine/repo_path_symlink_1/test-a/APKBUILD
+ create mode 100644 test/alpine/repo_path_symlink_1/test-base/APKBUILD
+ create mode 100755 test/alpine/test9.sh
+
+diff --git a/test/alpine/Makefile b/test/alpine/Makefile
+index cbe919e..b8a1730 100644
+--- a/test/alpine/Makefile
++++ b/test/alpine/Makefile
+@@ -1,7 +1,4 @@
+--include conf.mk
+-.PHONY:
+-
+-repos	:= repo1 repo2
++repos	:= repo_path_symlink_1 repo_path_1
+ 
+ tmproot := /tmp/apk-test
+ testroot = $(tmproot)/$(basename $@)
+@@ -11,19 +8,21 @@ testroot = $(tmproot)/$(basename $@)
+ # emulation using QEMU and binfmt (apk --root uses chroot to run pre/post
+ # install scripts).
+ QEMU_EMULATOR	?=
+-SUDO		?= sudo
+-SYSREPO		?= https://dl-cdn.alpinelinux.org/alpine/edge/main
+-APK		?= ../../src/apk
+-LD_LIBRARY_PATH	?= ../../src
++SUDO		:=
++SYSREPO		:=
++APK		?= $(realpath ../../output/src/apk)
++LD_LIBRARY_PATH	?= ../../output/src
++CBUILD		:= $(arch)
++PWD		:= $(pwd)
+ 
+-export APK LD_LIBRARY_PATH SYSREPO
++export APK LD_LIBRARY_PATH SYSREPO CBUILD
+ 
+ all: alpine-tests
+ 
+ $(repos):
+-	@echo "Building $@"
++	echo "Building $@"
+ 	@cd "$@" && for i in */APKBUILD; do \
+-		cd $${i%/*} && REPODEST="$$PWD/../.." abuild -r || exit 1
++		(cd $${i%/*} && REPODEST="$$PWD/../.." abuild -r) || exit 1; \
+ 	done
+ 
+ clean:
+@@ -41,7 +40,8 @@ repos.stamp: $(repos)
+ 	if [ -n "$(QEMU_EMULATOR)" ]; then \
+ 		install -Dm755 "$(QEMU_EMULATOR)" "$(testroot)$(QEMU_EMULATOR)"; \
+ 	fi; \
+-	if ! $(SUDO) LD_LIBRARY_PATH="$(LD_LIBRARY_PATH)" APK="$(APK) --keys-dir /etc/apk/keys" ROOT="$(testroot)" SYSREPO="$(SYSREPO)" sh -ex ./$< > $(basename $@).out 2>&1; then\
++	if ! $(SUDO) LD_LIBRARY_PATH="$(LD_LIBRARY_PATH)" APK="$(APK) --keys-dir /etc/apk/keys" ROOT="$(testroot)" SYSREPO="$(SYSREPO)" \
++		fakeroot sh -ex ./$< > $(basename $@).out 2>&1; then\
+ 		echo " FAIL";\
+ 		printf '%s\n' "------------- output -------------" >&2;\
+ 		cat $(basename $@).out >&2;\
+@@ -54,10 +54,12 @@ repos.stamp: $(repos)
+ 
+ alpine-tests: repos.stamp
+ 	@echo "== Testing `$(APK) --version` (tests that require root permission) =="
+-	@failed=0; for i in test*.sh; do \
++	@failed=0; for i in test9.sh; do \
+ 		rm -f $${i%.sh}.ok ;\
+ 		$(MAKE) --no-print-directory $${i%.sh}.ok \
+ 			SYSREPO=$(SYSREPO) \
+ 			QEMU_EMULATOR=$(QEMU_EMULATOR) || failed=1; \
+ 	done; \
+ 	return $$failed
++
++.PHONY: $(repos) repos
+diff --git a/test/alpine/repo_path_1/test-a/APKBUILD b/test/alpine/repo_path_1/test-a/APKBUILD
+new file mode 100644
+index 0000000..13fa6c4
+--- /dev/null
++++ b/test/alpine/repo_path_1/test-a/APKBUILD
+@@ -0,0 +1,30 @@
++pkgname=test-a
++pkgver=1.2
++pkgrel=0
++pkgdesc="Package A for apk-tools testsuite"
++url="https://bell-sw.com"
++arch="noarch"
++license="GPL"
++builddir="$srcdir/$pkgname-$pkgver"
++options="!check"
++
++prepare() {
++	mkdir -p "$builddir"
++}
++
++build() {
++	cd "$builddir"
++	cat > $pkgname <<-EOF
++		#!/bin/sh
++		echo "hello from $pkgname-$pkgver"
++	EOF
++}
++
++package() {
++	cd "$builddir"
++	local d; for d in lib bin sbin; do
++		install -Dm755 $pkgname "$pkgdir"/usr/$d/$pkgname
++	done
++}
++
++sha512sums="" #generate with 'abuild checksum'
+diff --git a/test/alpine/repo_path_symlink_1/test-a/APKBUILD b/test/alpine/repo_path_symlink_1/test-a/APKBUILD
+new file mode 100644
+index 0000000..840d637
+--- /dev/null
++++ b/test/alpine/repo_path_symlink_1/test-a/APKBUILD
+@@ -0,0 +1,31 @@
++pkgname=test-a
++pkgver=1.1
++pkgrel=0
++pkgdesc="Package A for apk-tools testsuite"
++url="https://bell-sw.com"
++arch="noarch"
++license="GPL"
++builddir="$srcdir/$pkgname-$pkgver"
++options="!check"
++
++prepare() {
++	mkdir -p "$builddir"
++}
++
++build() {
++	cd "$builddir"
++	cat > $pkgname <<-EOF
++		#!/bin/sh
++		echo "hello from $pkgname-$pkgver"
++	EOF
++}
++
++package() {
++	cd "$builddir"
++	local d; for d in lib bin sbin; do
++		install -Dm755 $pkgname "$pkgdir"/$d/$pkgname
++	done
++
++}
++
++sha512sums="" #generate with 'abuild checksum'
+diff --git a/test/alpine/repo_path_symlink_1/test-base/APKBUILD b/test/alpine/repo_path_symlink_1/test-base/APKBUILD
+new file mode 100644
+index 0000000..a597d6b
+--- /dev/null
++++ b/test/alpine/repo_path_symlink_1/test-base/APKBUILD
+@@ -0,0 +1,27 @@
++pkgname=test-base
++pkgver=1.1
++pkgrel=0
++pkgdesc="Package Base for apk-tools testsuite"
++url="https://bell-sw.com"
++arch="noarch"
++license="GPL"
++builddir="$srcdir/$pkgname-$pkgver"
++options="!check"
++
++prepare() {
++	mkdir -p "$builddir"
++}
++
++build() {
++	cd "$builddir"
++}
++
++package() {
++	local d; for d in lib bin sbin; do
++		mkdir -p "$pkgdir"/usr/$d
++		ln -sf usr/$d "$pkgdir"/$d
++		touch "$pkgdir"/usr/$d/test-base
++	done
++}
++
++sha512sums="" #generate with 'abuild checksum'
+diff --git a/test/alpine/test9.sh b/test/alpine/test9.sh
+new file mode 100755
+index 0000000..173331d
+--- /dev/null
++++ b/test/alpine/test9.sh
+@@ -0,0 +1,25 @@
++#!/bin/sh -e
++
++# desc: verify that /usr/{lib|bin|sbin}/test-a files are
++#       not removed after upgrade and downgrade
++
++check_dir()
++{
++	local ver=$1
++	local d; for d in lib bin sbin; do
++		test "$($ROOT/usr/$d/test-a)" = "hello from test-a-$ver"
++	done
++}
++
++$APK add --root $ROOT --initdb --repository $PWD/repo_path_symlink_1 test-base
++$APK add --root $ROOT --repository $PWD/repo_path_symlink_1 test-a
++check_dir 1.1
++
++$APK upgrade --root $ROOT --repository $PWD/repo_path_1
++check_dir 1.2
++
++$APK add --root $ROOT --repository $PWD/repo_path_symlink_1 -d test-a
++check_dir 1.1
++
++$APK del --root $ROOT test-a
++[ -x "$ROOT/usr/bin/test-a" ] || true
+-- 
+2.51.0
+

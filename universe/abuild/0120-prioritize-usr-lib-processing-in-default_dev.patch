@@ -1,0 +1,40 @@
+From 0810d7d47f04b73f398d2d062260383622bd95cd Mon Sep 17 00:00:00 2001
+From: Alexey Kodanev <aleksei.kodanev@bell-sw.com>
+Date: Thu, 14 Dec 2023 17:48:09 +0000
+Subject: [PATCH] prioritize usr/lib processing in default_dev()
+
+In the libc packages /lib dir is just a symlink to "usr/lib".
+
+So currently, for such packages, abuild disregards its own rule
+and creates /lib dir in libc-dev subpackage, moving all the dev
+files there. Next, it checks "/usr/lib", but everything has
+already been moved.
+---
+ abuild.in | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/abuild.in b/abuild.in
+index 6e60cf9..ffe9d74 100644
+--- a/abuild.in
++++ b/abuild.in
+@@ -2109,7 +2109,7 @@ default_dev() {
+ 
+ 	cd "$pkgdir"
+ 	local libdirs=usr/
+-	[ -d lib/ ] && libdirs="lib/ $libdirs"
++	[ -d lib/ ] && libdirs="$libdirs lib/"
+ 	for i in usr/include usr/lib/pkgconfig usr/share/pkgconfig \
+ 			usr/share/aclocal usr/share/gettext \
+ 			usr/bin/*-config usr/share/vala/vapi \
+@@ -2126,7 +2126,7 @@ default_dev() {
+ 		fi
+ 	done
+ 	# move *.so links needed when linking the apps to -dev packages
+-	for i in lib/*.so usr/lib/*.so; do
++	for i in usr/lib/*.so lib/*.so; do
+ 		[ -L "$i" ] && amove "$i"
+ 	done
+ 	return 0
+-- 
+2.52.0
+

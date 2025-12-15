@@ -1,0 +1,96 @@
+# Description: iproute2 is used for TCP/IP networking and traffic control in
+# the Linux kernel.
+
+pkgname=iproute2
+pkgver=6.18.0
+pkgrel=0
+pkgdesc="IP Routing Utilities"
+url="https://wiki.linuxfoundation.org/networking/iproute2"
+arch="all"
+license="GPL-2.0-or-later"
+install="$pkgname.post-install"
+depends="
+	$pkgname-minimal
+	$pkgname-tc
+	$pkgname-ss
+	"
+makedepends="
+	bash
+	bison
+	elfutils-dev
+	flex
+	iptables-dev
+	libcap-dev
+	libmnl-dev
+	"
+subpackages="
+	$pkgname-doc
+	$pkgname-dev
+	$pkgname-bash-completion
+	$pkgname-minimal
+	$pkgname-tc
+	$pkgname-ss
+	$pkgname-rdma
+	"
+source="https://kernel.org/pub/linux/utils/net/iproute2/iproute2-$pkgver.tar.xz
+	0001-fix-UINT_MAX-undeclared-with-build-with-musl-libc.patch
+	"
+options="!check"  # requires namespaces support and root
+
+# secfixes:
+#   5.1.0-r0:
+#     - CVE-2019-20795
+
+build() {
+	export CFLAGS="$CFLAGS -flto=auto"
+	make V=1
+}
+
+package() {
+	make DESTDIR="$pkgdir" SBINDIR=/usr/sbin install
+
+	install -D -m644 include/libnetlink.h "$pkgdir"/usr/include/libnetlink.h
+	install -D -m644 lib/libnetlink.a "$pkgdir"/usr/lib/libnetlink.a
+}
+
+minimal() {
+	pkgdesc="IP Routing Utilities (/sbin/ip only)"
+	depends=""
+	replaces="$pkgname"  # for backward compatibility (Alpine <3.13)
+
+	amove usr/sbin/ip
+	amove usr/share/iproute2
+}
+
+tc() {
+	pkgdesc="$pkgdesc (traffic control and XDP support)"
+	depends=""
+	replaces="$pkgname"  # for backward compatibility (Alpine <3.13)
+
+	amove usr/sbin/tc
+	amove usr/lib/tc
+}
+
+ss() {
+	pkgdesc="$pkgdesc (socket statistics tool)"
+	depends=""
+	replaces="$pkgname"  # for backward compatibility (Alpine <3.13)
+
+	amove usr/sbin/ss
+}
+
+rdma() {
+	pkgdesc="$pkgdesc (rdma utilities)"
+	depends=""
+
+	amove usr/sbin/dcb
+	amove usr/sbin/devlink
+	amove usr/sbin/rdma
+	amove usr/sbin/tipc
+	amove usr/sbin/vdpa
+}
+
+sha512sums="
+c4a0852fbf0143b51a65adb6a29cbc838ecaed88b827574ea33ddd2e3f90c00732eaea06ff702a7122d82f7e4d926282f9fbb59b87e41be7da04403c73258fc2  iproute2-6.18.0.tar.xz
+a7d678476641e5a2ccd39437ec2b0b9b84f6e6b7a8c97b6a4f699395c43a3ce08b47114c50cacd79eda557eed8f09c2a49796e96774a4502e306e68afe1958bc  0001-fix-UINT_MAX-undeclared-with-build-with-musl-libc.patch
+"

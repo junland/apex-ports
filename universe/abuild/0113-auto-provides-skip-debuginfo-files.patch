@@ -1,0 +1,27 @@
+From 7227b391032ec79fb0116e3a88bd967875406f8a Mon Sep 17 00:00:00 2001
+From: Alexey Kodanev <aleksei.kodanev@bell-sw.com>
+Date: Wed, 1 Feb 2023 16:02:25 +0300
+Subject: [PATCH] auto-provides: skip debuginfo files
+
+---
+ abuild.in | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/abuild.in b/abuild.in
+index a9e36cf..df77c3e 100644
+--- a/abuild.in
++++ b/abuild.in
+@@ -1705,6 +1705,10 @@ scan_shared_objects() {
+ 			soname=${soname##*/}
+ 		fi
+ 
++		suffix="${soname##*.}"
++		# skip adding debuginfo files to provides-so
++		[ "$suffix" = "debug" -o "$suffix" = "debuginfo" ] && continue
++
+ 		# we only want shared libs
+ 		case $soname in
+ 		*.o) continue;;
+-- 
+2.52.0
+

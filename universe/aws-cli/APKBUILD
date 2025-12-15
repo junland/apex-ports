@@ -1,0 +1,84 @@
+pkgname=aws-cli
+pkgver=1.42.26
+pkgrel=0
+pkgdesc="Universal Command Line Interface for Amazon Web Services"
+url="https://github.com/aws/aws-cli"
+arch="noarch"
+license="Apache-2.0"
+depends="
+	groff
+	py3-botocore
+	py3-colorama
+	py3-docutils
+	py3-jmespath
+	py3-rsa
+	py3-s3transfer
+	py3-yaml
+	python3
+	"
+makedepends="
+	py3-gpep517
+	py3-setuptools
+	py3-wheel
+	"
+subpackages="
+	$pkgname-doc
+	$pkgname-zsh-completion:zshcomp
+	$pkgname-bash-completion:bashcomp
+	$pkgname-completer
+	"
+source="$pkgname-$pkgver.tar.gz::https://github.com/aws/aws-cli/archive/$pkgver.tar.gz"
+
+build() {
+	gpep517 build-wheel \
+		--wheel-dir dist \
+		--output-fd 3 3>&1 >&2
+}
+
+check() {
+	python3 setup.py check
+}
+
+package() {
+	python3 -m installer -d "$pkgdir" \
+		dist/*.whl
+	rm "$pkgdir"/usr/bin/aws.cmd
+}
+
+bashcomp() {
+	depends="$pkgname-completer"
+	pkgdesc="$pkgdesc (bash completions)"
+	install_if="$pkgname=$pkgver-r$pkgrel bash-completion"
+	mkdir -p "$subpkgdir"/usr/share/bash-completion/completions
+	mv "$pkgdir"/usr/bin/aws_bash_completer \
+		"$subpkgdir"/usr/share/bash-completion/completions
+}
+
+zshcomp() {
+	depends="$pkgname-completer"
+	pkgdesc="$pkgdesc (zsh completions)"
+	install_if="$pkgname=$pkgver-r$pkgrel zsh"
+	mkdir -p "$subpkgdir"/usr/share/zsh/site-functions
+	mv "$pkgdir"/usr/bin/aws_zsh_completer.sh \
+		"$subpkgdir"/usr/share/zsh/site-functions
+}
+
+completer() {
+	depends=""
+	pkgdesc="$pkgdesc (completions helper)"
+
+	amove usr/bin/aws_completer
+	amove usr/lib/python*/site-packages/awscli/completer.py
+	amove usr/lib/python*/site-packages/awscli/__pycache__/completer.cpython-*.pyc
+}
+
+doc() {
+	default_doc
+
+	amove usr/lib/python3*/site-packages/awscli/examples
+	amove usr/lib/python3*/site-packages/awscli/topics
+}
+
+sha512sums="
+26e3aaef455b55ecfb205ca5ac8b67b1c96cd6526ee6db4275d7371f11556e05572cb6be4479cebcaf6bd5635bf32ac1f286f41b2568c96243defa9d038e5caf  aws-cli-1.42.26.tar.gz
+"

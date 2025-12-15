@@ -1,0 +1,45 @@
+From 3dc6f846dd0895eb08b3dc57bb45713ea95cbe1f Mon Sep 17 00:00:00 2001
+From: Alexey Kodanev <aleksei.kodanev@bell-sw.com>
+Date: Wed, 23 Nov 2022 18:15:15 +0300
+Subject: [PATCH] openrc: add rc_quiet_openrc for openrc binary
+
+---
+ etc/rc.conf     | 4 ++++
+ src/openrc/rc.c | 6 ++++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/etc/rc.conf b/etc/rc.conf
+index ca0f9207..1dd30b41 100644
+--- a/etc/rc.conf
++++ b/etc/rc.conf
+@@ -58,6 +58,10 @@
+ # verbose output for service foo only, set it to yes in /etc/conf.d/foo.
+ #rc_verbose=no
+ 
++# Set this option to "NO" if you want to see the messages from openrc/rc
++# during boot or shutdown.
++#rc_quiet_openrc="YES"
++
+ # By default we filter the environment for our running scripts. To allow other
+ # variables through, add them here. Use a * to allow all variables through.
+ #rc_env_allow="VAR1 VAR2"
+diff --git a/src/openrc/rc.c b/src/openrc/rc.c
+index b09de7fe..25405c58 100644
+--- a/src/openrc/rc.c
++++ b/src/openrc/rc.c
+@@ -861,6 +861,12 @@ int main(int argc, char **argv)
+ 
+ 	svcdir = rc_svcdir();
+ 
++	/* Do not put this code into env_config() intentionally, because
++	 * env_config() can be invoked by the openrc-run binary. */
++	errno = 0;
++	if (rc_conf_yesno("rc_quiet_openrc") || errno == ENOENT)
++		setenv("EINFO_QUIET", "YES", 1);
++
+ 	newlevel = argv[optind++];
+ 	/* To make life easier, we only have the shutdown runlevel as
+ 	 * nothing really needs to know that we're rebooting.
+-- 
+2.48.1
+

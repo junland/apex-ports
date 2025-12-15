@@ -1,0 +1,37 @@
+From fa0e32a68ead62aa88e81f8d5c3ad75f07bb20c9 Mon Sep 17 00:00:00 2001
+From: Stanislav Kholmanskikh <stanislav.kholmanskikh@bell-sw.com>
+Date: Fri, 19 Jan 2024 08:52:19 +0000
+Subject: [PATCH] Unset BASH_XTRACEFD in tests
+
+Our CI sets the BASH_XTRACEFD environment variable, but
+the fd may have been gone when the test is being executed,
+so bash prints the error message:
+
+  BASH_XTRACEFD: 10: invalid value for trace file descriptor
+
+that breaks bash tests.
+---
+ Lib/test/test_venv.py | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/Lib/test/test_venv.py b/Lib/test/test_venv.py
+index 2f4417621e..76dbb75b3d 100644
+--- a/Lib/test/test_venv.py
++++ b/Lib/test/test_venv.py
+@@ -44,9 +44,13 @@
+ 
+ @requires_subprocess()
+ def check_output(cmd, encoding=None):
++    # Our CI sets BASH_XTRACEFD and it breaks bash tests
++    e = os.environ.copy()
++    e.pop('BASH_XTRACEFD', None)
+     p = subprocess.Popen(cmd,
+         stdout=subprocess.PIPE,
+         stderr=subprocess.PIPE,
++        env=e,
+         encoding=encoding)
+     out, err = p.communicate()
+     if p.returncode:
+-- 
+2.25.1
+

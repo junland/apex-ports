@@ -1,0 +1,58 @@
+pkgname=distro-keys
+pkgver=1.0
+pkgrel=4
+pkgdesc="Public keys for $VENDOR_NAME $VENDOR_DISTRO_NAME Linux packages"
+url="$VENDOR_URL"
+# we install arch specific keys to /etc so we cannot do arch=noarch
+arch="all"
+license="MIT"
+provides="$VENDOR_DISTRO-keys=$pkgver-r$pkgrel"
+options="!check" # No testsuite
+
+_arch_keys="
+	aarch64:musl:info@bell-sw.com-66b9cb80.rsa.pub
+	aarch64:glibc:info@bell-sw.com-66b9cb81.rsa.pub
+	x86_64:musl:info@bell-sw.com-60a2aed7.rsa.pub
+	x86_64:glibc:info@bell-sw.com-61c66027.rsa.pub
+"
+
+for _i in $_arch_keys; do
+	source="$source ${_i#*:}"
+done
+
+_ins_key() {
+	msg "- $2 ($1)"
+	install -Dm644 "$srcdir"/$2 "$pkgdir"/etc/apk/keys/$2
+}
+
+package() {
+	# copy keys for repos
+	mkdir -p "$pkgdir"/etc/apk/keys
+	for i in $_arch_keys; do
+		_archs="${i%%:*}"
+		_libc_key="${i#*:}"
+		_libc="${_libc_key%:*}"
+		if [ "$_libc" == "$CLIBC" ] ; then
+			_key=${_libc_key#*:}
+			install -Dm644 "$srcdir"/$_key \
+				"$pkgdir"/usr/share/apk/keys/$_key
+
+			for _arch in ${_archs//,/ }; do
+				mkdir -p "$pkgdir"/usr/share/apk/keys/$_arch
+				ln -s ../$_key "$pkgdir"/usr/share/apk/keys/$_arch/
+
+				if [ "$_arch" = "$CARCH" ]; then
+					_ins_key $_arch $_key
+				fi
+			done
+		fi
+
+	done
+}
+
+sha512sums="
+c9d33968ec8fe58d8c4290bfcd99b9de7ac1c88a1205c2dd5021d00b6cb72c051d619fd46821739345590d8cc441184f3984d6bf913a0d382e2153e1160275bd  info@bell-sw.com-66b9cb80.rsa.pub
+398b395f5e913e0e4b9983bfe8bbe15ebf1bcc69070d39726e2c1423d093807d6fef193c0d403aafca37bee40b074eadf28d174582edbd22b58e1fb62071a749  info@bell-sw.com-66b9cb81.rsa.pub
+a92a9c2860fdd4a33adc9f339a7f6c4ce7217b450b6a2800f5d59d9721c5e7aa141f9ff2638bb9f2a940bff2fe1c3cd8979990bc6b9a03e3cbbda0c82292a1f4  info@bell-sw.com-60a2aed7.rsa.pub
+937cb1a84cef6af5707051036f175d50018feeaca4855638558e172775e7adf5c7d0fde4a9d5b6d4ca3f8de81dfcca9f0f4702d9a9b783eaa78c85a118cb7345  info@bell-sw.com-61c66027.rsa.pub
+"

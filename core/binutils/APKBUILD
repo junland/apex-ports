@@ -1,0 +1,279 @@
+# Description: binutils is a set of tools that enables compilation and linking
+# of programs within the GNU system.
+
+pkgname=binutils
+pkgver=2.45.1
+_gold_ver=2.44 # last even version of $pkgver
+pkgrel=1
+pkgdesc="GNU tools for programs building"
+url="https://www.gnu.org/software/binutils/"
+makedepends_build="bison flex texinfo linux-headers"
+makedepends_host="zlib-dev"
+checkdepends="dejagnu"
+arch="all"
+license="GPL-2.0-or-later AND LGPL-2.1-or-later AND BSD-3-Clause"
+subpackages="$pkgname-dev $pkgname-doc"
+source="https://ftp.gnu.org/gnu/binutils/binutils-$pkgver.tar.xz
+	https://ftp.gnu.org/gnu/binutils/binutils-with-gold-$_gold_ver.tar.xz
+	0001-Revert-PR25882-.gnu.attributes-are-not-checked-for-s.patch
+	binutils-ld-fix-static-linking.patch
+	s390x-pie.patch
+
+	0100-CVE-2025-1147.patch
+	0101-CVE-2025-11414.patch
+	0102-CVE-2025-11412.patch
+	0103-CVE-2025-11413-pre.patch
+	0103-CVE-2025-11413.patch
+	0104-CVE-2025-11494.patch
+	0105-CVE-2025-11495.patch
+	0106-CVE-2025-11840.patch
+	0107-CVE-2025-11839.patch
+	0108-CVE-2025-11081.patch
+	0109-CVE-2025-11082.patch
+	0110-CVE-2025-11083.patch
+	"
+builddir="$srcdir/$pkgname-$pkgver"
+
+if [ "$CBUILD" = "$CTARGET" ]; then
+	_alpine_archs="
+		aarch64
+		x86_64
+		"
+fi
+
+if [ -z "$BOOTSTRAP" ]; then
+	makedepends_host="$makedepends_host jansson-dev zstd-dev"
+	_noboot_configure="--enable-jansson --with-zstd"
+
+	for _target_arch in $_alpine_archs; do
+		if [ "$_target_arch" != "$CARCH" ]; then
+			_cross_targets="$_cross_targets $_target_arch"
+			subpackages="
+				$subpackages
+				$pkgname-$_target_arch:_cross_target
+				"
+		fi
+	done
+fi
+
+if [ "$CHOST" != "$CTARGET" ]; then
+	pkgname="$pkgname-$CTARGET_ARCH"
+	subpackages=""
+	sonameprefix="$pkgname:"
+fi
+
+_gold_configure="--disable-gold"
+if [ "$CHOST" = "$CBUILD" ] && [ "$CBUILD" = "$CTARGET" ] ; then
+	subpackages="$subpackages $pkgname-gold"
+	_gold_configure="--enable-gold"
+fi
+
+# secfixes:
+#   2.45.1-r1:
+#     - CVE-2025-11081
+#     - CVE-2025-11082
+#     - CVE-2025-11083
+#   2.45-r2:
+#     - CVE-2025-11412
+#     - CVE-2025-11413
+#     - CVE-2025-11414
+#     - CVE-2025-11494
+#     - CVE-2025-11495
+#     - CVE-2025-11839
+#     - CVE-2025-11840
+#   2.45-r1:
+#     - CVE-2025-1147
+#   2.45-r0:
+#     - CVE-2025-1148
+#     - CVE-2025-1149
+#     - CVE-2025-1150
+#     - CVE-2025-1151
+#     - CVE-2025-1152
+#     - CVE-2025-1176
+#     - CVE-2025-1178
+#     - CVE-2025-1180
+#     - CVE-2025-1181
+#     - CVE-2025-1182
+#     - CVE-2025-5244
+#     - CVE-2025-5245
+#     - CVE-2025-7545
+#     - CVE-2025-7546
+#     - CVE-2025-8225
+#   2.44-r2:
+#     - CVE-2025-1153
+#     - CVE-2025-3198
+#   2.44-r0:
+#     - CVE-2025-0840
+#     - CVE-2025-1179
+#     - CVE-2025-8224
+#   2.40-r10:
+#     - CVE-2023-1972
+#   2.40-r0:
+#     - CVE-2023-1579
+#   2.39-r2:
+#     - CVE-2022-38533
+#   2.39-r0:
+#     - CVE-2022-38126
+#   2.35.2-r1:
+#     - CVE-2021-3487
+#   2.32-r0:
+#     - CVE-2018-19931
+#     - CVE-2018-19932
+#     - CVE-2018-20002
+#     - CVE-2018-20712
+#   2.28-r1:
+#     - CVE-2017-7614
+
+prepare() {
+	default_prepare
+	rm -rf "$builddir"/gold "$builddir"/elfcpp
+	mv "$srcdir"/binutils-with-gold-*/gold "$builddir"/gold
+	mv "$srcdir"/binutils-with-gold-*/elfcpp "$builddir"/elfcpp
+}
+
+build() {
+	_configure "$CTARGET" "$CTARGET_ARCH" "$_gold_configure"
+	local _target_arch
+
+	for _target_arch in $_cross_targets; do
+		_configure \
+			"$(arch_to_hostspec "$_target_arch")" \
+			"$_target_arch" \
+			"--disable-gold" &
+	done
+	wait
+
+	for _builddir in "$srcdir"/build-*; do
+		make -C "$_builddir"
+	done
+}
+
+_configure() {
+	local target="$1" target_arch="$2" _gold_configure="$3"
+	local _sysroot=/
+	local _cross_configure="--enable-install-libiberty --enable-shared --enable-plugins"
+	local _arch_configure=""
+
+	if [ "$CHOST" != "$CTARGET" ]; then
+		_sysroot="$CBUILDROOT"
+	fi
+	if [ "$CARCH" != "$target_arch" ]; then
+		_cross_configure="--disable-install-libbfd --disable-install-libiberty --disable-plugins"
+	fi
+
+	if [ "$target_arch" = "x86_64" ]; then
+		_arch_configure="--enable-targets=x86_64-pep"
+	fi
+
+	mkdir -p "$srcdir/build-$target_arch"
+	cd "$srcdir/build-$target_arch"
+
+	CFLAGS="$CFLAGS -O2" \
+	CXXFLAGS="$CXXFLAGS -O2" \
+	"$builddir"/configure \
+		--build=$CBUILD \
+		--host=$CHOST \
+		--target="$target" \
+		--with-build-sysroot="$CBUILDROOT" \
+		--with-sysroot=$_sysroot \
+		--prefix=/usr \
+		--mandir=/usr/share/man \
+		--infodir=/usr/share/info \
+		--sysconfdir=/etc \
+		$_arch_configure \
+		$_cross_configure \
+		$_gold_configure \
+		$_noboot_configure \
+		--disable-gdb \
+		--disable-gprofng \
+		--disable-multilib \
+		--disable-nls \
+		--disable-werror \
+		--enable-64-bit-bfd \
+		--enable-colored-disassembly \
+		--enable-default-execstack=no \
+		--enable-default-hash-style=gnu \
+		--enable-deterministic-archives \
+		--enable-ld=default \
+		--enable-new-dtags \
+		--enable-relro \
+		--enable-threads \
+		--with-bugurl="$VENDOR_BUG_REPORT_URL" \
+		--with-mmap \
+		--with-pic \
+		--with-system-zlib
+	make configure-host configure-target
+}
+
+check() {
+	(
+		# A 'replacing_non_deterministic_member' test from 'ar.exp'
+		# expects SOURCE_DATE_EPOCH to not be set in the environment.
+		unset SOURCE_DATE_EPOCH
+
+		# for now run tests only from the 'binutils' subdirectory
+		make -C "$srcdir/build-$CTARGET_ARCH/binutils" \
+			RUNTESTFLAGS='--all --log_dialog' check
+	)
+}
+
+package() {
+	for _target_arch in $_cross_targets; do
+		make -C "$srcdir/build-$_target_arch" install DESTDIR="$pkgdir"
+		if [ -d "$pkgdir"/usr/lib64 ]; then
+			mv "$pkgdir"/usr/lib64/* "$pkgdir"/usr/lib/
+			rmdir "$pkgdir"/usr/lib64
+		fi
+		rm -r "${pkgdir:?}"/usr/share "${pkgdir:?}"/usr/lib
+	done
+
+	make -C "$srcdir/build-$CTARGET_ARCH" install DESTDIR="$pkgdir"
+	if [ "$CHOST" != "$CTARGET" ]; then
+		# creating cross tools: remove any files that would conflict
+		# with the native tools, or other cross tools
+		rm -r "${pkgdir:?}"/usr/share "${pkgdir:?}"/usr/lib
+	fi
+}
+
+dev()
+{
+	default_dev
+	cp -f "$srcdir"/build-${CARCH}/libiberty/pic/libiberty.a "$subpkgdir"/usr/lib/
+}
+
+gold() {
+	pkgdesc="GNU binutils - gold linker (deprecated)"
+
+	amove usr/bin/ld.gold
+	amove usr/$CTARGET/bin/ld.gold
+}
+
+_cross_target() {
+	local target_arch="${subpkgname#*-}"
+	local target="$(arch_to_hostspec "$target_arch")"
+	pkgdesc="Tools necessary to build programs for $target_arch"
+
+	amove \
+		usr/bin/$target-* \
+		usr/$target
+}
+
+sha512sums="
+ea030419eba387579ab717be7e3223fc99e93b586860b06003c12489f93441640d4082736f76aa5e98233db4f46e232f536a45e471486de1f5b64e1b827c167e  binutils-2.45.1.tar.xz
+1d8688f1b6f1bc64cfd1f82e3af05b8ace1d709d4fa819acb4d12d74e1b69b4314d98fb4281dacc9b5fa51ff7370d0249f540ec016fd137aa701502d72426301  binutils-with-gold-2.44.tar.xz
+70ec22bd72ef6dddecfd970613387dd4a8cdc8730dd3cbf03d5a0c3a7c4d839383167bb06dad21bf7c235329fd44b5dc4aefe762f68544f17155cf002bf1be4a  0001-Revert-PR25882-.gnu.attributes-are-not-checked-for-s.patch
+ecee33b0e435aa704af1c334e560f201638ff79e199aa11ed78a72f7c9b46f85fbb227af5748e735fd681d1965fcc42ac81b0c8824e540430ce0c706c81e8b49  binutils-ld-fix-static-linking.patch
+762ee44a847d56467294adad113562ba0bafbb90828530f93e7e2ee383bf7d52be58c5def6a2ff0e1ae7d24ab6682f220f7c6fe2fecab2b55fd4d31ef55e0e58  s390x-pie.patch
+5f6feabd0452aaa4fa291e9ceb7a685f68747901794bf4703f1c2ae2e4bf58a5ac88424ed1b4ab2320e90f57fad62ea966ade9e4d7b2cf4d7c7e39bd589a1423  0100-CVE-2025-1147.patch
+f94ca50e728ab45c5dadaf871afa3032cdb5a7a1e41cead179e94b586d8f4675f21f011ace9e83c0d4541f58b56d4804a9fc829768fcc9ac680981d9ae7d8449  0101-CVE-2025-11414.patch
+2369cec8922bfee419b3d4df804b815faa30550a8feb00c55ad72fccd49f78ef3efbcbb19c53ca714f0f99e4a7e78bb7a9fd1809112631ac8196125a84afc106  0102-CVE-2025-11412.patch
+09986e23f3b491075703bab2b2d00b0b3d131a7a9730629524bd59f3aaaaa0700898fce1d6b827c8114efa5641281f5a79bc2808b439432ea4899a7986547e7a  0103-CVE-2025-11413-pre.patch
+8f691fe57942859acea2741d1845489a9593051d02c6d8e332d4e2f99e5a34ddcd8043ae45255f2df56cfb58a75101afd72dc77d004f1413fb0aa2fde7ee9966  0103-CVE-2025-11413.patch
+8616ee0ad6e08370835bf2d4a35a4ee8f819303d516ab90e14420190345593ce707cef268e26008f668731c1d665bdafba279d1bf69d1a13cf9077bf1884d4b6  0104-CVE-2025-11494.patch
+28f1c52e0fb4fe28f712d3c903cc028b8e546d782805400f86db43fd4452f049ff4e07a006ab258e885f92613e85bb5c902438c6dd9a515950c52affc1985063  0105-CVE-2025-11495.patch
+ea40a8b4987d3be4118e97ddaeab957a40d390c8ccf6da8be1adf5403976b1ae5c158d51fafdca64f2608cf62b5ba097321fca1be155589f6cdea1efa3e46a7f  0106-CVE-2025-11840.patch
+8eed1245f6a41509908af3c6965bd7f02a53a2dcf4796961e345f3209162c9ddd464ab20d9039c9da056e000bb4d25be8d897647b58cf9320799d737c8ab8cf1  0107-CVE-2025-11839.patch
+cd7ec96cbc7a4fbde8aee172060fbf2a73bb5a25e78a515c24f84c7fde16a22be82c1f5352ed865d9cf54828b2b70e35547703f4d593c53102b1706c35798b91  0108-CVE-2025-11081.patch
+5187c2203154e8f49f900f28364e6b8016071316a1271ee249ef2b691538a5be524b8d54308beeea49808480bf7e2f03551db0a52e23929b583381f57bf414e8  0109-CVE-2025-11082.patch
+f3ea95da9b2080d0303fcbdbe912e322fdba418c5821736fe9660f9a9a5437e5ca3f7189f600cfa5438d7776791dce2181ac26c15eb90ca4096feb92af6eebbb  0110-CVE-2025-11083.patch
+"

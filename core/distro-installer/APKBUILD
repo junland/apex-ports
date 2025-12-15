@@ -1,0 +1,112 @@
+pkgname=distro-installer
+pkgver=0.9.4
+pkgrel=0
+pkgdesc="$VENDOR_DISTRO_NAME Linux Installer"
+url="$VENDOR_URL"
+arch="noarch"
+license="AGPL-3.0-or-later"
+depends="
+	blkid
+	bonding
+	cryptsetup
+	dosfstools
+	e2fsprogs
+	hwids-pci
+	hwids-usb
+	ifupdown-ng-wifi
+	kmod
+	lsblk
+	lvm2
+	mdadm
+	mdadm-udev
+	parted
+	py3-attrs
+	py3-urwid
+	py3-yaml
+	python3
+	sfdisk
+	tzdata
+	wipefs
+	xfsprogs
+"
+makedepends="py3-setuptools"
+builddir="$srcdir/alpaquero-$pkgver"
+provides="$VENDOR_DISTRO-installer=$pkgver-r$pkgrel"
+subpackages="$pkgname-doc"
+source="$pkgname-$pkgver.tar.gz::https://github.com/bell-sw/alpaquero/archive/refs/tags/v$pkgver.tar.gz
+	https://raw.githubusercontent.com/bell-sw/alpaquita-aports/stream/core/distro-keys/info@bell-sw.com-60a2aed7.rsa.pub
+	https://raw.githubusercontent.com/bell-sw/alpaquita-aports/stream/core/distro-keys/info@bell-sw.com-61c66027.rsa.pub
+	https://raw.githubusercontent.com/bell-sw/alpaquita-aports/stream/core/distro-keys/info@bell-sw.com-66b9cb80.rsa.pub
+	https://raw.githubusercontent.com/bell-sw/alpaquita-aports/stream/core/distro-keys/info@bell-sw.com-66b9cb81.rsa.pub
+	"
+
+_set_vendor() {
+	local distro_file='alpaquero/app/distro.py'
+	local readme_file='README.md'
+	local setup_file='setup.py'
+
+	sed -i -E \
+		-e "s/^[[:space:]]*(DISTRO)[[:space:]]*=.*/\\1='$VENDOR_DISTRO'/" \
+		-e "s/^[[:space:]]*(DISTRO_NAME)[[:space:]]*=.*/\\1='$VENDOR_DISTRO_NAME Linux'/" \
+		-e "s,^[[:space:]]*(DISTRO_REPO_BASE_URL)[[:space:]]*=.*,\\1='${VENDOR_REPO_BASE_URL%/}'," \
+		"$distro_file"
+
+	sed -i -E \
+		-e "s/\\w+(-like Linux)/$VENDOR_DISTRO_NAME\\1/" \
+		-e "s/(configured to work with )\\w+/\\1$VENDOR_DISTRO_NAME/" \
+		"$readme_file"
+
+	sed -i -E \
+		-e "/description=/s/\\w+(-like Linux)/$VENDOR_DISTRO_NAME\\1/" \
+		"$setup_file"
+}
+
+build() {
+	_set_vendor
+
+	local apk_keys_glibc=""
+	local apk_keys_musl=""
+	case "$CARCH" in
+	x86_64)
+		apk_keys_glibc="info@bell-sw.com-61c66027.rsa.pub"
+		apk_keys_musl="info@bell-sw.com-60a2aed7.rsa.pub"
+		;;
+	aarch64)
+		apk_keys_glibc="info@bell-sw.com-66b9cb81.rsa.pub"
+		apk_keys_musl="info@bell-sw.com-66b9cb80.rsa.pub"
+		;;
+	esac
+	local key
+	for key in $apk_keys_glibc; do
+		install -v -D -m 0644 "${srcdir}/${key}" -t alpaquero/keys/glibc/
+	done
+	for key in $apk_keys_musl; do
+		install -v -D -m 0644 "${srcdir}/${key}" -t alpaquero/keys/musl/
+	done
+
+	python3 setup.py build
+}
+
+check() {
+	python3 setup.py check
+}
+
+package() {
+	python3 setup.py install --prefix=/usr --root="$pkgdir"
+
+	mv "$pkgdir/usr/bin/alpaquero" "$pkgdir/usr/bin/$pkgname"
+	ln -s "$pkgname" "$pkgdir/usr/bin/$VENDOR_DISTRO-installer"
+
+	mkdir -p "$pkgdir/usr/share/doc/$pkgname"
+	for _doc in *.md; do
+		install -m 0644 $_doc "$pkgdir/usr/share/doc/$pkgname"
+	done
+}
+
+sha512sums="
+ef769a140e4afb33b70207cbc4092d7ce06a0b0c469419e83b7254f655ac9dfdba2bf641ca0508686a0d4437213a3232cb230dee5bb93a2948720ad5dc7a980e  distro-installer-0.9.4.tar.gz
+a92a9c2860fdd4a33adc9f339a7f6c4ce7217b450b6a2800f5d59d9721c5e7aa141f9ff2638bb9f2a940bff2fe1c3cd8979990bc6b9a03e3cbbda0c82292a1f4  info@bell-sw.com-60a2aed7.rsa.pub
+937cb1a84cef6af5707051036f175d50018feeaca4855638558e172775e7adf5c7d0fde4a9d5b6d4ca3f8de81dfcca9f0f4702d9a9b783eaa78c85a118cb7345  info@bell-sw.com-61c66027.rsa.pub
+c9d33968ec8fe58d8c4290bfcd99b9de7ac1c88a1205c2dd5021d00b6cb72c051d619fd46821739345590d8cc441184f3984d6bf913a0d382e2153e1160275bd  info@bell-sw.com-66b9cb80.rsa.pub
+398b395f5e913e0e4b9983bfe8bbe15ebf1bcc69070d39726e2c1423d093807d6fef193c0d403aafca37bee40b074eadf28d174582edbd22b58e1fb62071a749  info@bell-sw.com-66b9cb81.rsa.pub
+"

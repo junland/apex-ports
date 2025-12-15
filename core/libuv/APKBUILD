@@ -1,0 +1,56 @@
+# Description: libuv package provides cross-platform tools for working with
+# asynchronous I/O with event loops.
+
+pkgname=libuv
+pkgver=1.51.0
+pkgrel=0
+pkgdesc="Library for asynchronous I/O"
+url="https://libuv.org/"
+arch="all"
+license="MIT"
+makedepends_build="automake autoconf libtool"
+makedepends_host="linux-headers"
+subpackages="$pkgname-dbg $pkgname-static $pkgname-dev"
+source="https://dist.libuv.org/dist/v$pkgver/libuv-v$pkgver.tar.gz
+
+	0100-Disable-closed_fd_events-test-on-aarch64.patch
+	"
+builddir="$srcdir/$pkgname-v$pkgver"
+
+# secfixes:
+#   1.48.0-r0:
+#     - CVE-2024-24806
+#   1.39.0-r0:
+#     - CVE-2020-8252
+
+prepare() {
+	default_prepare
+	sh autogen.sh
+}
+
+build() {
+	CFLAGS="$CFLAGS -O2" \
+	./configure \
+		--build=$CBUILD \
+		--host=$CHOST \
+		--prefix=/usr \
+		--sysconfdir=/etc \
+		--mandir=/usr/share/man \
+		--localstatedir=/var
+	make
+}
+
+check() {
+	make check
+}
+
+package() {
+	make DESTDIR="$pkgdir" install
+	install -Dm644 LICENSE \
+		"$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
+
+sha512sums="
+99e5c6529fb97019d20d5ce8638be504c35236e7102a7a6b7a2242205928d152d6b535bb6f45961a78506d408eebd0e3300b090969a64fa87dfdf6c8f4291a12  libuv-v1.51.0.tar.gz
+31e765906b8011ff50f3ae4b8485ece833179766a57bc8f9e44b6c50437bcd3e7dac6b1eb251c5b5431ba5c7ea566837909e763de23f52336c70423bedb4d1ad  0100-Disable-closed_fd_events-test-on-aarch64.patch
+"

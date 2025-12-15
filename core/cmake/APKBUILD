@@ -1,0 +1,121 @@
+# Description: CMake is an open-source, cross-platform family of tools designed
+# to build, test and package software. CMake is used to control the software
+# compilation process using simple platform and compiler independent
+# configuration files, and generate native makefiles and workspaces that can be
+# used in the compiler environment of your choice. The suite of CMake tools were
+# created by Kitware in response to the need for a powerful, cross-platform
+# build environment for open-source projects such as ITK and VTK.
+
+pkgname=cmake
+pkgver=4.2.1
+pkgrel=0
+_pkgver=${pkgver/_rc/-rc}
+pkgdesc="Cross-platform, open-source make system"
+url="https://cmake.org/"
+arch="all"
+license="BSD-3-Clause"
+makedepends="
+	bzip2-dev
+	expat-dev
+	libarchive-dev
+	libuv-dev
+	linux-headers
+	ncurses-dev
+	py3-sphinx
+	rhash-dev
+	samurai
+	xz-dev
+	zlib-dev
+	"
+checkdepends="file"
+subpackages="
+	ccmake
+	$pkgname-doc
+	$pkgname-bash-completion
+	$pkgname-emacs::noarch
+	$pkgname-vim::noarch
+	"
+case $pkgver in
+*.*.*.*) _v=v${pkgver%.*.*};;
+*.*.*) _v=v${pkgver%.*};;
+esac
+source="https://cmake.org/files/$_v/cmake-$_pkgver.tar.gz
+
+	0100-GNUInstallDirs-don-t-use-lib64.patch
+	"
+builddir="$srcdir/$pkgname-$_pkgver"
+options="!check"
+
+build() {
+	# jsoncpp/cppdap/curl/nghttp2 needs cmake to build so to avoid recursive build
+	# dependency, we use the bundled version.
+	# Do NOT remove --no-system-*
+
+	./bootstrap \
+		--prefix=/usr \
+		--mandir=/share/man \
+		--datadir=/share/$pkgname \
+		--docdir=/share/doc/$pkgname \
+		--sphinx-man \
+		--no-system-cppdap \
+		--no-system-curl \
+		--no-system-jsoncpp \
+		--no-system-nghttp2 \
+		--system-bzip2 \
+		--system-expat \
+		--system-libarchive \
+		--system-liblzma \
+		--system-librhash \
+		--system-libuv \
+		--system-zlib \
+		--generator=Ninja \
+		--parallel="${JOBS:-2}" \
+		-- \
+		-B build
+	ninja -C build
+}
+
+check() {
+	./build/bin/ctest --test-dir build
+}
+
+package() {
+	DESTDIR="$pkgdir" ninja -C build install
+
+	# Wrappers to ease the CMake 4 migration, aports that fail to build can
+	# switch to these while waiting for upstream to update CMakeLists.txt.
+	local exe; for exe in cmake ctest; do
+		cat > "$pkgdir"/usr/bin/${exe}3.5 <<-EOF
+			#!/bin/sh
+			export CMAKE_POLICY_VERSION_MINIMUM=3.5
+			exec $exe "\$@"
+		EOF
+		chmod 0755 "$pkgdir"/usr/bin/${exe}3.5
+	done
+}
+
+ccmake() {
+	pkgdesc="$pkgdesc (ccmake configurator)"
+	depends="$pkgname=$pkgver-r$pkgrel"
+
+	amove usr/bin/ccmake
+}
+
+emacs() {
+	pkgdesc="$pkgdesc (emacs mode)"
+	install_if="$pkgname=$pkgver-r$pkgrel emacs"
+
+	amove usr/share/emacs
+}
+
+vim() {
+	pkgdesc="$pkgdesc (vim files)"
+	install_if="$pkgname=$pkgver-r$pkgrel vim"
+
+	amove usr/share/vim
+}
+
+sha512sums="
+75617692e975f5974bc015d62983e48d0dedaed2daa1e25d93807d25c6ed836e73e37de064e1e924078162fc20f38f9210ac1c4d699c9bd795050119abc848ce  cmake-4.2.1.tar.gz
+ab3c3ebc3d6fcb7475e879b8792cab45194b4cf720f6852feed8d0baaaf39a5b577e5f752c7c7602b88e6d53b52947487ecc187ebeb5dbf8e6ce910597e990a1  0100-GNUInstallDirs-don-t-use-lib64.patch
+"

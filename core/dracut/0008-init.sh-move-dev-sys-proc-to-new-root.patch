@@ -1,0 +1,29 @@
+From c364c4740c97d34f04d60215e9095d1f65af3089 Mon Sep 17 00:00:00 2001
+From: Alexey Kodanev <aleksei.kodanev@bell-sw.com>
+Date: Tue, 15 Feb 2022 20:05:10 +0300
+Subject: [PATCH] init.sh: move dev,sys,proc to new root
+
+---
+ modules.d/99base/init.sh | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/modules.d/99base/init.sh b/modules.d/99base/init.sh
+index c9090e9e..d461800e 100755
+--- a/modules.d/99base/init.sh
++++ b/modules.d/99base/init.sh
+@@ -377,6 +377,12 @@ bv=$(getarg rd.break) && [ -z "$bv" ] \
+ unset bv
+ info "Switching root"
+ 
++# BusyBox switch_root doesn't support moving already mounted /dev, /sys, /proc
++# filesystems, so we need to do this ourselves.
++for x in dev sys proc; do
++    ismounted $NEWROOT/$x || mount --move /$x $NEWROOT/$x
++done
++
+ unset PS4
+ 
+ PATH=$OLDPATH
+-- 
+2.25.1
+

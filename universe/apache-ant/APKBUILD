@@ -1,0 +1,100 @@
+pkgname=apache-ant
+pkgver=1.10.15
+pkgrel=0
+pkgdesc="A java-based build tool"
+url="https://ant.apache.org/"
+# riscv64: blocked by openjdk8
+arch="noarch !riscv64"
+license="Apache-2.0"
+makedepends="openjdk8"
+depends="java-jdk-no-deps"
+source="https://www.apache.org/dist/ant/source/apache-ant-$pkgver-src.tar.bz2
+	0100-add-resolver-proxy-support.patch
+	"
+# !check: needs itself for testing
+# net: fetch dependencies
+options="!check net"
+
+_anthome="/usr/share/java/$pkgname"
+
+# secfixes:
+#   1.10.11-r0:
+#     - CVE-2021-36373
+#     - CVE-2021-36374
+#   1.10.9-r0:
+#     - CVE-2020-11979
+#   1.10.8-r0:
+#     - CVE-2020-1945
+
+_setup_proxy()
+{
+	local proto=$1 default_port=$2
+	local proto_uc=$(echo "$proto" | tr [:lower:] [:upper:])
+	local var_name host port
+
+	for var_name in ${proto_uc}_PROXY ${proto}_proxy; do
+		# [protocol://][username:password@]<host>[:port]
+		IFS=: read host port \
+			< <(eval "echo \$$var_name" | awk -F'(://|@)' '{ print $NF }')
+
+		if [ -n "$host" ]; then
+			: ${port:=$default_port}
+			# settings for the java builtin client
+			export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -D$proto.proxyHost=$host -D$proto.proxyPort=$port"
+			# settings for the client used by maven-resolver-ant-tasks
+			eval "export ${proto}_proxy_host=$host"
+			eval "export ${proto}_proxy_port=$port"
+			break
+		fi
+	done
+}
+
+build() {
+	_setup_proxy http 80
+	_setup_proxy https 443
+
+	export JAVA_HOME="/usr/lib/jvm/java-8-$(echo $VENDOR_JAVA_NAME | tr [:upper:] [:lower:])"
+	./bootstrap.sh
+	bootstrap/bin/ant -f fetch.xml -Ddest=optional
+	bootstrap/bin/ant dist
+
+	cat > $pkgname.sh <<-EOF
+	ANT_HOME="$_anthome"
+	export ANT_HOME
+	EOF
+}
+
+package() {
+	local destdir="$pkgdir/$_anthome"
+	cd apache-ant-$pkgver
+
+	install -dm755 "$destdir"/bin
+	rm bin/*.bat bin/*.cmd
+	install -m755 bin/* "$destdir"/bin
+
+	install -dm755 "$pkgdir"/usr/bin
+	ln -sf $_anthome/bin/ant "$pkgdir"/usr/bin/ant
+
+	cp -r etc "$destdir"/
+
+	install -dm755 "$destdir"/lib
+	install -m644 lib/*.jar "$destdir"/lib
+
+	# symlink to junit so it's on the javac build path for ant
+	# matches behavior on ubuntu 9 and makes sense for compatibility
+	# http://bugs.archlinux.org/task/15229
+	ln -sf ../../junit.jar "$destdir"/lib/junit.jar
+
+	# The license says the NOTICE file should be redistributed for
+	# derivative works, so lets supply it.
+	local file; for file in LICENSE NOTICE; do
+		install -m644 -D $file "$pkgdir"/usr/share/licenses/$pkgname/$file
+	done
+
+	install -m644 -D "$builddir"/$pkgname.sh "$pkgdir"/etc/profile.d/$pkgname.sh
+}
+
+sha512sums="
+fd9477ce9ee0f4dcf000ab1583d1b6b85bc65be45a1a0d7366420029be6983e47fe44c3293263c54cde957b13a6bb2a29ea1b059a30f745ccc6219480feefac2  apache-ant-1.10.15-src.tar.bz2
+841b5a5ef4f19e8043db9861c1e04644aaed1b92b5200a9245736891f266a48c87c787e8b9f80e3efb1bfb04c140f537508792d3f5dcbbaa525f50c54cfb2920  0100-add-resolver-proxy-support.patch
+"

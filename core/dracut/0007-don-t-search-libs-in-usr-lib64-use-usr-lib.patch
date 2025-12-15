@@ -1,0 +1,35 @@
+From c60ca45e328948ce13c901fc49cc4f03a5ceb44c Mon Sep 17 00:00:00 2001
+From: Alexey Kodanev <aleksei.kodanev@bell-sw.com>
+Date: Tue, 8 Feb 2022 20:24:11 +0300
+Subject: [PATCH] don't search libs in /usr/lib64, use /usr/lib
+
+---
+ dracut-init.sh | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
+
+diff --git a/dracut-init.sh b/dracut-init.sh
+index 353b28cc..0c4e3072 100755
+--- a/dracut-init.sh
++++ b/dracut-init.sh
+@@ -83,17 +83,7 @@ DRACUT_LDCONFIG=${DRACUT_LDCONFIG:-ldconfig}
+ 
+ # Detect lib paths
+ if ! [[ $libdirs ]]; then
+-    if [[ $("$DRACUT_LDD" "$dracutsysrootdir$DRACUT_TESTBIN") == */lib64/* ]] &> /dev/null \
+-        && [[ -d $dracutsysrootdir/lib64 ]]; then
+-        libdirs+=" /lib64"
+-        [[ -d $dracutsysrootdir/usr/lib64 ]] && libdirs+=" /usr/lib64"
+-
+-    fi
+-
+-    if [[ -d $dracutsysrootdir/lib ]]; then
+-        libdirs+=" /lib"
+-        [[ -d $dracutsysrootdir/usr/lib ]] && libdirs+=" /usr/lib"
+-    fi
++    [[ -d $dracutsysrootdir/usr/lib ]] && libdirs+=" /usr/lib"
+ 
+     libdirs+=" $(ldconfig_paths)"
+ 
+-- 
+2.25.1
+

@@ -1,0 +1,19 @@
+#!/usr/sbin/openrc-run
+
+name="busybox watchdog"
+command="/usr/sbin/watchdog"
+command_args="${WATCHDOG_OPTS} -F ${WATCHDOG_DEV}"
+pidfile="/run/watchdog.pid"
+command_background=true
+
+depend() {
+	need dev
+	after dev-settle
+}
+
+start_pre() {
+	if ! [ -n "$WATCHDOG_DEV" ]; then
+		eerror "WATCHDOG_DEV is not set"
+		return 1
+	fi
+}

@@ -1,0 +1,55 @@
+pkgname=linux-headers
+pkgver=6.12.60
+_kernver=${pkgver%.*}
+pkgrel=0
+pkgdesc="Linux system headers"
+url="https://kernel.org/"
+arch="all" # Headers are architecture specific
+license="GPL-2.0-only"
+makedepends="perl"
+options="!check !dbg !strip !tracedeps !archcheck"
+source="https://kernel.org/pub/linux/kernel/v6.x/linux-$_kernver.tar.xz
+	revert-broken-uapi.patch
+	0003-remove-inclusion-of-sysinfo.h-in-kernel.h.patch
+	"
+if [ "${pkgver%.0}" = "$pkgver" ]; then
+	source="
+		patch-$pkgver.patch.xz::https://cdn.kernel.org/pub/linux/kernel/v${pkgver%%.*}.x/patch-$pkgver.xz
+		$source
+		"
+fi
+builddir="$srcdir/linux-$_kernver"
+
+_carch="$CARCH"
+case "$_carch" in
+aarch64*) _carch="arm64" ;;
+arm*) _carch="arm" ;;
+mips*) _carch="mips" ;;
+s390*) _carch="s390" ;;
+ppc*) _carch="powerpc" ;;
+riscv*) _carch="riscv" ;;
+loongarch*) _carch="loongarch" ;;
+# not sure about this --	ppc64*) _carch="powerpc64" ;;
+esac
+
+build() {
+	make headers ARCH="$_carch"
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/
+	cp -a usr/include/ "$pkgdir"/usr/include/
+
+	msg "purging non header files.."
+	find "$pkgdir"/usr/include/ ! -iname "*.h" -type f -exec rm -v {} \+
+
+	# provided by libdrm
+	rm -rf "$pkgdir"/usr/include/drm
+}
+
+sha512sums="
+fdd7dce9736c87bb25b966091c133ef37bf257ffc34c1909e6809fa674b2047cba801f8b6430b3087a1569326e9d8d9b41bda914ee186f5d8d65c3df4d8f3777  patch-6.12.60.patch.xz
+a37b1823df7b4f72542f689b65882634740ba0401a42fdcf6601d9efd2e132e5a7650e70450ba76f6cd1f13ca31180f2ccee9d54fe4df89bc0000ade4380a548  linux-6.12.tar.xz
+32597f2672d1ec365a936d15041a7cf219ef9353241d4a5c378244cf2fc155610443a19bbcd391c86099a0b08486c45e042ec7c90b0d04fe675c3ad0ffc36b53  revert-broken-uapi.patch
+607c074d72aca88fea9ecdbd62198d8f7857daca75e5d027966e0a9997338d6ac8ce0a1e9114b19232b390751d05acca09e28b0cfad2a12d5942f5575a9f4684  0003-remove-inclusion-of-sysinfo.h-in-kernel.h.patch
+"

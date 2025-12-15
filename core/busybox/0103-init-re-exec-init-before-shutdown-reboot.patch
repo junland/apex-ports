@@ -1,0 +1,102 @@
+From 9fea6bc7381ae9273f9af6933a0d17cc2e09ea6c Mon Sep 17 00:00:00 2001
+From: Alexey Kodanev <aleksei.kodanev@bell-sw.com>
+Date: Wed, 22 Jan 2025 14:04:49 +0000
+Subject: [PATCH] init: re-exec init before shutdown/reboot
+
+---
+ init/init.c | 42 +++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 37 insertions(+), 5 deletions(-)
+
+diff --git a/init/init.c b/init/init.c
+index f6fae3e..afa3d77 100644
+--- a/init/init.c
++++ b/init/init.c
+@@ -827,7 +827,7 @@ static void run_shutdown_and_kill_processes(int sig)
+ static void halt_reboot_pwoff(int sig) NORETURN;
+ static void halt_reboot_pwoff(int sig)
+ {
+-	const char *m;
++	const char *m, *cmd;
+ 	unsigned rb;
+
+ 	/* We may call run() and it unmasks signals,
+@@ -838,18 +838,24 @@ static void halt_reboot_pwoff(int sig)
+ 	*/
+ 	reset_sighandlers_and_unblock_sigs();
+
+-	run_shutdown_and_kill_processes(sig);
+-
+ 	m = "halt";
+ 	rb = RB_HALT_SYSTEM;
++	cmd = "init do_halt";
+ 	if (sig == SIGTERM) {
+ 		m = "reboot";
+ 		rb = RB_AUTOBOOT;
++		cmd = "init do_reboot";
+ 	} else if (sig == SIGUSR2) {
+ 		m = "poweroff";
+ 		rb = RB_POWER_OFF;
++		cmd = "init do_poweroff";
+ 	}
++
+ 	message(L_CONSOLE, "Requesting system %s", m);
++	init_exec(cmd);
++
++	message(L_LOG | L_CONSOLE, "Error requesting system %s via init re-exec", m);
++	run_shutdown_and_kill_processes(sig);
+ 	pause_and_low_level_reboot(rb);
+ 	/* not reached */
+ }
+@@ -1056,6 +1062,7 @@ int init_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+ int init_main(int argc UNUSED_PARAM, char **argv)
+ {
+ 	struct sigaction sa;
++	unsigned init_restart_action = 0;
+
+ 	INIT_G();
+
+@@ -1131,8 +1138,16 @@ int init_main(int argc UNUSED_PARAM, char **argv)
+ 	*/
+ 	//putenv((char *) "HOME=/");
+
+-	if (argv[1])
+-		xsetenv("RUNLEVEL", argv[1]);
++	if (argv[1]) {
++		if (strcmp(argv[1], "do_reboot") == 0)
++			init_restart_action = RB_AUTOBOOT;
++		else if (strcmp(argv[1], "do_poweroff") == 0)
++			init_restart_action = RB_POWER_OFF;
++		else if (strcmp(argv[1], "do_halt") == 0)
++			init_restart_action = RB_HALT_SYSTEM;
++		else
++			xsetenv("RUNLEVEL", argv[1]);
++	}
+
+ #if !ENABLE_FEATURE_INIT_QUIET
+ 	/* Hello world */
+@@ -1180,6 +1195,23 @@ int init_main(int argc UNUSED_PARAM, char **argv)
+ 		nuke_str(*argv);
+ #endif
+
++	if (init_restart_action) {
++		int sig;
++		switch (init_restart_action) {
++			case RB_AUTOBOOT:
++				sig = SIGTERM; break;
++			case RB_POWER_OFF:
++				sig = SIGUSR2; break;
++			case RB_HALT_SYSTEM:
++			default:
++				sig = SIGUSR1; break;
++		}
++		reset_sighandlers_and_unblock_sigs();
++		run_shutdown_and_kill_processes(sig);
++		pause_and_low_level_reboot(init_restart_action);
++		/* not reached */
++	}
++
+ 	/* Set up STOP signal handlers */
+ 	/* Stop handler must allow only SIGCONT inside itself */
+ 	memset(&sa, 0, sizeof(sa));
+--
+2.48.1
