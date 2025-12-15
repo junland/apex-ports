@@ -184,8 +184,9 @@ The script respects and sets the following environment variables:
 - `MAKEFLAGS` - Make parallelization flags
 
 ### Customization
-- `BASE_PACKAGES` - Space-separated list of base packages to build (default: "busybox coreutils bash glibc binutils gcc")
-  - Example: `BASE_PACKAGES="busybox coreutils" ./scripts/bootstrap.sh -a aarch64`
+- `BASE_PACKAGES` - Space-separated list of base packages to build (default: "busybox coreutils bash")
+  - Note: binutils, glibc, and gcc are built in earlier stages as part of the toolchain
+  - Example: `BASE_PACKAGES="busybox coreutils bash gawk grep" ./scripts/bootstrap.sh -a aarch64`
 
 ## Troubleshooting
 

@@ -45,7 +45,8 @@ Usage: $0 [options]
 
 Options:
   -a ARCH       Target architecture (default: ${DEFAULT_ARCH})
-                Supported: x86_64, aarch64, armv7, armhf, ppc64le, riscv64
+                Supported: x86_64, aarch64, armv7, armhf, armv5, armv6, 
+                           ppc64le, riscv64, loongarch64
   -j JOBS       Number of parallel build jobs (default: ${DEFAULT_JOBS})
   -o OUTPUT     Output directory for cross-tools (default: ${DEFAULT_OUTPUT})
   -c            Clean build directories before building
@@ -366,7 +367,9 @@ build_base_system() {
 	log_info "Building base system packages for $CTARGET..."
 	
 	# Default base packages (can be overridden via BASE_PACKAGES env var)
-	local packages="${BASE_PACKAGES:-busybox coreutils bash glibc binutils gcc}"
+	# Note: binutils, glibc, and gcc are already built in earlier stages,
+	# but may need to be rebuilt for the target system
+	local packages="${BASE_PACKAGES:-busybox coreutils bash}"
 	local failed_packages=""
 	local built_packages=""
 	
@@ -412,6 +415,13 @@ build_base_system() {
 # Create toolchain wrapper scripts
 create_wrappers() {
 	log_info "Creating toolchain wrapper scripts..."
+	
+	# Validate CTARGET to prevent path traversal
+	case "$CTARGET" in
+		*/* | *.* | *..*)
+			die "Invalid CTARGET value: $CTARGET"
+			;;
+	esac
 	
 	local wrapper_dir="$OUTPUT/tools/bin"
 	mkdir -p "$wrapper_dir"
