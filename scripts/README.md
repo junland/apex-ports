@@ -176,11 +176,16 @@ abuild -r
 
 The script respects and sets the following environment variables:
 
+### Build Configuration
 - `CBUILD` - Build system triplet (e.g., x86_64-pc-linux-gnu)
 - `CHOST` - Host system triplet (where programs will run)
 - `CTARGET` - Target system triplet (for cross-compilers)
 - `CBUILDROOT` - Root directory for target system files
 - `MAKEFLAGS` - Make parallelization flags
+
+### Customization
+- `BASE_PACKAGES` - Space-separated list of base packages to build (default: "busybox coreutils bash glibc binutils gcc")
+  - Example: `BASE_PACKAGES="busybox coreutils" ./scripts/bootstrap.sh -a aarch64`
 
 ## Troubleshooting
 

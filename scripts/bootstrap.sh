@@ -183,12 +183,18 @@ setup_directories() {
 	mkdir -p "$OUTPUT/sysroot"/{usr/{bin,lib,include},etc,var}
 	
 	# Create symlinks for compatibility
-	ln -sf usr/bin "$OUTPUT/sysroot/bin" 2>/dev/null || true
-	ln -sf usr/lib "$OUTPUT/sysroot/lib" 2>/dev/null || true
+	if [ ! -e "$OUTPUT/sysroot/bin" ]; then
+		ln -sf usr/bin "$OUTPUT/sysroot/bin"
+	fi
+	if [ ! -e "$OUTPUT/sysroot/lib" ]; then
+		ln -sf usr/lib "$OUTPUT/sysroot/lib"
+	fi
 	
 	if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "aarch64" ]; then
 		mkdir -p "$OUTPUT/sysroot/usr/lib64"
-		ln -sf usr/lib64 "$OUTPUT/sysroot/lib64" 2>/dev/null || true
+		if [ ! -e "$OUTPUT/sysroot/lib64" ]; then
+			ln -sf usr/lib64 "$OUTPUT/sysroot/lib64"
+		fi
 	fi
 	
 	log_info "Directory structure created"
@@ -359,7 +365,10 @@ build_gcc_stage2() {
 build_base_system() {
 	log_info "Building base system packages for $CTARGET..."
 	
-	local packages="busybox coreutils bash glibc binutils gcc"
+	# Default base packages (can be overridden via BASE_PACKAGES env var)
+	local packages="${BASE_PACKAGES:-busybox coreutils bash glibc binutils gcc}"
+	local failed_packages=""
+	local built_packages=""
 	
 	export CBUILD="$CBUILD"
 	export CHOST="$CTARGET"
@@ -376,16 +385,28 @@ build_base_system() {
 		
 		if [ ! -d "$pkg_dir" ]; then
 			log_warn "Package directory not found: $pkg_dir, skipping"
+			failed_packages="$failed_packages $pkg"
 			continue
 		fi
 		
 		if command -v abuild >/dev/null 2>&1; then
 			cd "$pkg_dir"
-			abuild -r || log_warn "Failed to build package: $pkg"
+			if abuild -r; then
+				built_packages="$built_packages $pkg"
+				log_info "Package $pkg built successfully"
+			else
+				log_warn "Failed to build package: $pkg"
+				failed_packages="$failed_packages $pkg"
+			fi
 		fi
 	done
 	
-	log_info "Base system packages built"
+	log_info "Base system package build summary:"
+	log_info "  Successfully built: $built_packages"
+	if [ -n "$failed_packages" ]; then
+		log_warn "  Failed to build: $failed_packages"
+		log_warn "  The base system may be incomplete"
+	fi
 }
 
 # Create toolchain wrapper scripts
