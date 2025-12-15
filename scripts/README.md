@@ -44,6 +44,8 @@ cd /work
 - `-j JOBS` - Number of parallel build jobs (default: number of CPU cores)
 - `-o OUTPUT` - Output directory for cross-compiler and sysroot (default: /tmp/apex-cross)
 - `-c` - Clean build directories before building
+- `-n` - Dry run mode - show what would be done without actually building
+- `-v` - Verbose output - show detailed execution information
 - `-h` - Show help message
 
 ### Examples
@@ -65,6 +67,25 @@ cd /work
 ```bash
 ./scripts/bootstrap.sh -a x86_64 -j 12 -o /opt/apex-cross-x86_64 -c
 ```
+
+#### Dry run to preview build process
+
+```bash
+./scripts/bootstrap.sh -a aarch64 -n
+```
+
+This will show you what would be built without actually building anything. Useful for:
+- Verifying configuration before long builds
+- Understanding the build process
+- Checking architecture support
+
+#### Verbose mode for debugging
+
+```bash
+./scripts/bootstrap.sh -a aarch64 -j 8 -o /opt/apex-cross-aarch64 -v
+```
+
+Shows detailed execution information for troubleshooting build issues.
 
 ## Build Process
 

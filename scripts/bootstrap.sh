@@ -29,6 +29,8 @@ DEFAULT_ARCH="${CTARGET_ARCH:-x86_64}"
 DEFAULT_JOBS="$(nproc 2>/dev/null || echo 4)"
 DEFAULT_OUTPUT="/tmp/apex-cross"
 CLEAN_BUILD=0
+DRY_RUN=0
+VERBOSE=0
 
 # Parse command line arguments
 ARCH="$DEFAULT_ARCH"
@@ -47,6 +49,8 @@ Options:
   -j JOBS       Number of parallel build jobs (default: ${DEFAULT_JOBS})
   -o OUTPUT     Output directory for cross-tools (default: ${DEFAULT_OUTPUT})
   -c            Clean build directories before building
+  -n            Dry run - show what would be done without building
+  -v            Verbose output
   -h            Show this help message
 
 Example:
@@ -61,12 +65,14 @@ EOF
 	exit 0
 }
 
-while getopts "a:j:o:ch" opt; do
+while getopts "a:j:o:cnvh" opt; do
 	case "$opt" in
 		a) ARCH="$OPTARG" ;;
 		j) JOBS="$OPTARG" ;;
 		o) OUTPUT="$OPTARG" ;;
 		c) CLEAN_BUILD=1 ;;
+		n) DRY_RUN=1 ;;
+		v) VERBOSE=1 ;;
 		h) usage ;;
 		*) usage ;;
 	esac
@@ -92,6 +98,20 @@ log_warn() {
 die() {
 	log_error "$*"
 	exit 1
+}
+
+# Execute command with dry-run support
+run_cmd() {
+	if [ "$DRY_RUN" -eq 1 ]; then
+		log_info "[DRY RUN] Would execute: $*"
+		return 0
+	fi
+	
+	if [ "$VERBOSE" -eq 1 ]; then
+		log_info "Executing: $*"
+	fi
+	
+	"$@"
 }
 
 # Architecture mapping and validation
@@ -408,6 +428,14 @@ main() {
 	log_info "Parallel Jobs: $JOBS"
 	log_info "Output Directory: $OUTPUT"
 	
+	if [ "$DRY_RUN" -eq 1 ]; then
+		log_info "DRY RUN MODE - No actual building will occur"
+	fi
+	
+	if [ "$VERBOSE" -eq 1 ]; then
+		log_info "VERBOSE MODE - Detailed output enabled"
+	fi
+	
 	# Get script directory
 	SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 	
@@ -421,10 +449,18 @@ main() {
 	log_info "Target System: $CTARGET"
 	
 	# Check prerequisites
-	check_prerequisites
+	if [ "$DRY_RUN" -eq 0 ]; then
+		check_prerequisites
+	else
+		log_info "[DRY RUN] Would check prerequisites"
+	fi
 	
 	# Setup directories
-	setup_directories
+	if [ "$DRY_RUN" -eq 0 ]; then
+		setup_directories
+	else
+		log_info "[DRY RUN] Would setup directories in $OUTPUT"
+	fi
 	
 	# Export common variables
 	export MAKEFLAGS="-j${JOBS}"
@@ -432,39 +468,75 @@ main() {
 	
 	# Build process
 	log_info "=== Stage 1: Cross-Binutils ==="
-	build_binutils
+	if [ "$DRY_RUN" -eq 0 ]; then
+		build_binutils
+	else
+		log_info "[DRY RUN] Would build cross-binutils"
+	fi
 	
 	log_info "=== Stage 2: Kernel Headers ==="
-	install_kernel_headers
+	if [ "$DRY_RUN" -eq 0 ]; then
+		install_kernel_headers
+	else
+		log_info "[DRY RUN] Would install kernel headers"
+	fi
 	
 	log_info "=== Stage 3: Cross-GCC Stage 1 ==="
-	build_gcc_stage1
+	if [ "$DRY_RUN" -eq 0 ]; then
+		build_gcc_stage1
+	else
+		log_info "[DRY RUN] Would build cross-gcc stage 1"
+	fi
 	
 	log_info "=== Stage 4: Target Glibc ==="
-	build_glibc
+	if [ "$DRY_RUN" -eq 0 ]; then
+		build_glibc
+	else
+		log_info "[DRY RUN] Would build target glibc"
+	fi
 	
 	log_info "=== Stage 5: Cross-GCC Stage 2 ==="
-	build_gcc_stage2
+	if [ "$DRY_RUN" -eq 0 ]; then
+		build_gcc_stage2
+	else
+		log_info "[DRY RUN] Would build cross-gcc stage 2"
+	fi
 	
 	log_info "=== Stage 6: Base System ==="
-	build_base_system
+	if [ "$DRY_RUN" -eq 0 ]; then
+		build_base_system
+	else
+		log_info "[DRY RUN] Would build base system packages"
+	fi
 	
 	log_info "=== Stage 7: Create Wrappers ==="
-	create_wrappers
+	if [ "$DRY_RUN" -eq 0 ]; then
+		create_wrappers
+	else
+		log_info "[DRY RUN] Would create wrapper scripts"
+	fi
 	
 	# Summary
 	log_info "=== Bootstrap Complete ==="
-	log_info "Cross-compiler location: $OUTPUT/tools"
-	log_info "Target sysroot location: $OUTPUT/sysroot"
-	log_info ""
-	log_info "To use the cross-compiler, run:"
-	log_info "  export PATH=\"$OUTPUT/tools/usr/bin:\$PATH\""
-	log_info "Or use the wrapper:"
-	log_info "  $OUTPUT/tools/bin/${CTARGET}-env <command>"
-	log_info ""
-	log_info "To cross-compile a package:"
-	log_info "  cd <package-dir>"
-	log_info "  CBUILD=$CBUILD CHOST=$CTARGET CTARGET=$CTARGET CBUILDROOT=$OUTPUT/sysroot abuild -r"
+	
+	if [ "$DRY_RUN" -eq 1 ]; then
+		log_info "DRY RUN COMPLETED - No files were modified"
+		log_info ""
+		log_info "To actually build, run without the -n flag:"
+		log_info "  $0 -a $ARCH -j $JOBS -o $OUTPUT"
+	else
+		log_info "Cross-compiler location: $OUTPUT/tools"
+		log_info "Target sysroot location: $OUTPUT/sysroot"
+		log_info ""
+		log_info "To use the cross-compiler, run:"
+		log_info "  export PATH=\"$OUTPUT/tools/usr/bin:\$PATH\""
+		log_info "Or use the wrapper:"
+		log_info "  $OUTPUT/tools/bin/${CTARGET}-env <command>"
+		log_info ""
+		log_info "To cross-compile a package:"
+		log_info "  cd <package-dir>"
+		log_info "  CBUILD=$CBUILD CHOST=$CTARGET CTARGET=$CTARGET CBUILDROOT=$OUTPUT/sysroot abuild -r"
+	fi
 }
 
 # Run main function
