@@ -1,0 +1,43 @@
+pkgname=alsa-lib
+pkgver=1.2.7.2
+pkgrel=0
+pkgdesc="Advanced Linux Sound Architecture (ALSA) library"
+url="https://alsa-project.org/"
+arch="all"
+license="LGPL-2.1-or-later"
+subpackages="$pkgname-dbg $pkgname-dev"
+makedepends="linux-headers"
+source="
+	https://alsa-project.org/files/pub/lib/alsa-lib-$pkgver.tar.bz2
+	remove-test.patch
+	"
+
+build() {
+	./configure \
+		--build=$CBUILD \
+		--host=$CHOST \
+		--prefix=/usr \
+		--disable-python \
+		--disable-static \
+		--disable-resmgr \
+		--enable-rawmidi \
+		--enable-seq \
+		--enable-aload \
+		--disable-dependency-tracking \
+		--without-versioned
+	make
+}
+
+check() {
+	make check
+}
+
+package() {
+	make -j1 DESTDIR="$pkgdir" install
+	install -d -m755 "$pkgdir"/etc/alsa/conf.d
+}
+
+sha512sums="
+79e5920384e570a1acd8ecd1eb8812879333c3cedb1d15780080afc40125b97df893c33f4163d9dd863871b628bc6026265f8ace2c8634fc1af5b52b62ac9cfe  alsa-lib-1.2.7.2.tar.bz2
+e15318431fe2d5bd1e42ef793f223e3e5995890d7befe6daa3d7456ccf5cb2f51eb79171539cecae13032a9b8a798ea35e04c89b27c7ef9567e2c03fb8db4512  remove-test.patch
+"

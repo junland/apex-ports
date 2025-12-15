@@ -1,0 +1,43 @@
+pkgname=postgresql-common
+pkgver=1.1
+pkgrel=1
+pkgdesc="Common files for PostgreSQL"
+url="https://www.postgresql.org/"
+arch="noarch"
+license="MIT"
+install="$pkgname.pre-install $pkgname.pre-deinstall"
+triggers="$pkgname.trigger=/usr/libexec/postgresql*:/usr/share/postgresql*"
+subpackages="$pkgname-openrc"
+source="
+	pg_versions
+	postgresql.initd
+	postgresql.confd
+	"
+builddir="$srcdir"
+options="!check"  # No test suite
+
+# secfixes:
+#   0:
+#     - CVE-2019-3466
+
+package() {
+	mkdir -p "$pkgdir"
+
+	install -D -m755 "$srcdir"/pg_versions "$pkgdir"/usr/sbin/pg_versions
+
+}
+
+openrc() {
+	pkgdesc="OpenRC init scripts for PostgreSQL"
+	depends=""
+	replaces="postgresql-openrc"  # for backward compatibility
+
+	install -D -m755 "$srcdir"/postgresql.initd "$subpkgdir"/etc/init.d/postgresql
+	install -D -m644 "$srcdir"/postgresql.confd "$subpkgdir"/etc/conf.d/postgresql
+}
+
+sha512sums="
+f9887e260bbcccb1a96030d3065459f1c0b4b8c50e62008ab1e0964e5b281de330e3d25b311eb88a729c23342193bedb3549913b24facd4f39c1398f819c0d8c  pg_versions
+04735c7264dc3c1cf217cf629523e64ab5a941878af904cbce710043170c720b4d1a00ad2c41ffec7bb19089565a2667943882a5b1959cb8f4b6ec2d9d5c97db  postgresql.initd
+611cca04bdf97284bca2c85688e3512dd5fcce2c1d40dcf2082855008cbe988dccbdc589af5021a120b2de10455b3700712f99d1b60da1e10ee953516f030db5  postgresql.confd
+"
