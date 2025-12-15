@@ -49,9 +49,11 @@ docker build -t apex-bootstrap .
 Show help:
 ```bash
 docker run --rm apex-bootstrap
+# Or explicitly:
+# docker run --rm apex-bootstrap ./scripts/bootstrap.sh -h
 ```
 
-Cross-compile for ARM64:
+Cross-compile for ARM64 (mounts local output directory to /tmp/apex-cross, the default output path):
 ```bash
 mkdir -p output
 docker run --rm -v $(pwd)/output:/tmp/apex-cross apex-bootstrap ./scripts/bootstrap.sh -a aarch64 -j 8
