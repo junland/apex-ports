@@ -27,7 +27,8 @@ This script is designed to run in an Alpine Linux environment with `abuild` inst
 # Build the Docker image from the repository root
 docker build -t apex-bootstrap .
 
-# Run the bootstrap script with Docker
+# Run the bootstrap script with Docker (creates output directory if needed)
+mkdir -p output
 docker run --rm -v $(pwd)/output:/tmp/apex-cross apex-bootstrap ./scripts/bootstrap.sh -a aarch64 -j 8
 ```
 

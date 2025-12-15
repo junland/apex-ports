@@ -15,7 +15,6 @@ FROM alpine:latest
 # - patch: For applying patches to source code
 # - perl: Perl interpreter for build scripts
 # - linux-headers: Linux kernel headers for the build system
-# - sudo: For user privilege management
 RUN apk update && apk add --no-cache \
     alpine-sdk \
     build-base \
@@ -30,13 +29,11 @@ RUN apk update && apk add --no-cache \
     xz \
     patch \
     perl \
-    linux-headers \
-    sudo
+    linux-headers
 
 # Create a non-root user for building
 # Alpine packages should not be built as root for security
-RUN adduser -D -G abuild builder && \
-    echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+RUN adduser -D -G abuild builder
 
 # Set up abuild key for the builder user
 USER builder
