@@ -33,7 +33,7 @@ RUN apk update && apk add --no-cache \
 
 # Create a non-root user for building
 # Alpine packages should not be built as root for security
-RUN adduser -D -G abuild builder
+RUN adduser -D -h /home/builder -G abuild builder
 
 # Set up abuild key for the builder user
 USER builder

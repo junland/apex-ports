@@ -57,6 +57,7 @@ Cross-compile for ARM64 (mounts local output directory to /tmp/apex-cross, the d
 ```bash
 mkdir -p output
 docker run --rm -v $(pwd)/output:/tmp/apex-cross apex-bootstrap ./scripts/bootstrap.sh -a aarch64 -j 8
+# Note: $(pwd) works in bash/zsh. For POSIX sh, use $PWD instead.
 ```
 
 Interactive mode (to explore or debug):
